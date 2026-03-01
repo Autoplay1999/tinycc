@@ -529,6 +529,28 @@ LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name)
     return addr == -1 ? NULL : (void*)(uintptr_t)addr;
 }
 
+LIBTCCAPI int tcc_get_symbol_size(TCCState *s, const char *name)
+{
+    int sym_index = find_elf_sym(s->symtab, name);
+    ElfW(Sym) *sym;
+
+    if (!sym_index)
+        return -1;
+
+    sym = &((ElfW(Sym) *)s->symtab->data)[sym_index];
+    if (sym->st_shndx == SHN_UNDEF)
+        return -1;
+        
+    return sym->st_size;
+}
+
+LIBTCCAPI int tcc_get_total_code_size(TCCState *s)
+{
+    Section *sec = have_section(s, ".text");
+    if (!sec) return 0;
+    return sec->data_offset;
+}
+
 LIBTCCAPI int tcc_add_symbol(TCCState *s1, const char *name, const void *val)
 {
 #ifdef TCC_TARGET_PE

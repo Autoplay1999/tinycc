@@ -94,6 +94,11 @@ LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr);
 /* return symbol value or NULL if not found */
 LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name);
 
+/* return symbol size or -1 if not found */
+LIBTCCAPI int tcc_get_symbol_size(TCCState *s, const char *name);
+
+/* return total code size of the text section */
+LIBTCCAPI int tcc_get_total_code_size(TCCState *s);
 
 /* list all (global) symbols and their values via 'symbol_cb()' */
 LIBTCCAPI void tcc_list_symbols(TCCState *s, void *ctx,
