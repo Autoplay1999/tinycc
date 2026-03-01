@@ -141,7 +141,7 @@ static int rt_mem(TCCState *s1, int size)
 /* Do all relocations (needed before using tcc_get_symbol())
    Returns -1 on error. */
 
-LIBTCCAPI int tcc_relocate(TCCState *s1)
+LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr)
 {
     int size, ret, ptr_diff;
 
@@ -154,10 +154,18 @@ LIBTCCAPI int tcc_relocate(TCCState *s1)
     size = tcc_relocate_ex(s1, NULL, 0);
     if (size < 0)
         return -1;
-    ptr_diff = rt_mem(s1, size);
-    if (ptr_diff < 0)
-        return -1;
-    ret = tcc_relocate_ex(s1, s1->run_ptr, ptr_diff);
+    if (ptr == NULL) {
+        ptr_diff = rt_mem(s1, size);
+        if (ptr_diff < 0)
+            return -1;
+        ptr = s1->run_ptr;
+        s1->run_ptr_user = 0;
+    } else {
+        s1->run_ptr = ptr;
+        s1->run_ptr_user = 1;
+        ptr_diff = 0;
+    }
+    ret = tcc_relocate_ex(s1, ptr, ptr_diff);
     if (ret == 0)
         st_link(s1);
     return ret;
@@ -186,14 +194,16 @@ ST_FUNC void tcc_run_free(TCCState *s1)
     st_unlink(s1);
     size = s1->run_size;
 #ifdef CONFIG_SELINUX
-    munmap(ptr, size);
+    if (!s1->run_ptr_user)
+        munmap(ptr, size);
 #else
     /* unprotect memory to make it usable for malloc again */
     protect_pages((void*)PAGEALIGN(ptr), size - PAGESIZE, 2 /*rw*/);
 # ifdef _WIN64
     win64_del_function_table(s1->run_function_table);
 # endif
-    tcc_free(ptr);
+    if (!s1->run_ptr_user)
+        tcc_free(ptr);
 #endif
 }
 
@@ -226,7 +236,7 @@ LIBTCCAPI int tcc_run(TCCState *s1, int argc, char **argv)
         s1->run_main = top_sym = s1->elf_entryname;
     tcc_add_support(s1, "runmain.o");
 
-    if (tcc_relocate(s1) < 0)
+    if (tcc_relocate(s1, NULL) < 0)
         return -1;
 
     prog_main = (void*)get_sym_addr(s1, s1->run_main, 1, 1);

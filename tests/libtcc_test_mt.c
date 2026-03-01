@@ -162,7 +162,7 @@ void *reloc_state(TCCState *s, const char *entry)
 {
     void *func;
     tcc_add_symbol(s, "add", add);
-    if (tcc_relocate(s) < 0) {
+    if (tcc_relocate(s, NULL) < 0) {
         fprintf(stderr, __FILE__ ": could not relocate tcc state.\n");
         return NULL;
     }

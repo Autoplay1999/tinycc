@@ -89,10 +89,11 @@ LIBTCCAPI int tcc_output_file(TCCState *s, const char *filename);
 LIBTCCAPI int tcc_run(TCCState *s, int argc, char **argv);
 
 /* do all relocations (needed before using tcc_get_symbol()) */
-LIBTCCAPI int tcc_relocate(TCCState *s1);
+LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr);
 
 /* return symbol value or NULL if not found */
 LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name);
+
 
 /* list all (global) symbols and their values via 'symbol_cb()' */
 LIBTCCAPI void tcc_list_symbols(TCCState *s, void *ctx,

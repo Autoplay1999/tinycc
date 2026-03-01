@@ -45,7 +45,7 @@ main(void)
     tcc_set_output_type(s, TCC_OUTPUT_MEMORY);
     if (tcc_compile_string_file(s, program, "tst.c") == -1)
 	return 1;
-    if (tcc_relocate(s) < 0)
+    if (tcc_relocate(s, NULL) < 0)
         return 1;
     elf_output_obj(s, "tst.o");
     /* set breakpoint on next line. and load symbol file with
