@@ -156,6 +156,15 @@ if not _%XCC%_==_yes_ goto :compiler_done
 :compiler_done
 @if (%EXES_ONLY%)==(yes) goto :files_done
 
+@rem --- build static libtcc.lib (/MT) ---
+@if not "%CC:~0,1%"=="@" goto :skip_static_lib
+cl /nologo /c /O2 /W2 /MT /GS- %D% %DEF_GITHASH% /Folibtcc_static.obj %LIBTCC_C%
+@if errorlevel 1 goto :the_end
+lib /nologo /out:libtcc.lib libtcc_static.obj
+@if errorlevel 1 goto :the_end
+@del libtcc_static.obj 2>nul
+:skip_static_lib
+
 if not exist libtcc mkdir libtcc
 if not exist doc mkdir doc
 copy>nul ..\include\*.h include
@@ -166,6 +175,7 @@ copy>nul tcc-win32.txt doc
 
 if exist libtcc.dll .\tcc -impdef libtcc.dll -o libtcc\libtcc.def
 @if errorlevel 1 goto :the_end
+@if exist libtcc.lib copy>nul libtcc.lib libtcc\libtcc.lib
 
 :lib
 call :make_lib %T% || goto :the_end
