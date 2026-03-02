@@ -341,7 +341,7 @@ static Section *have_section(TCCState *s1, const char *name)
     int i;
     for(i = 1; i < s1->nb_sections; i++) {
         sec = s1->sections[i];
-        if (!strcmp(name, sec->name))
+        if (sec && !strcmp(name, sec->name))
             return sec;
     }
     return NULL;
@@ -546,9 +546,12 @@ LIBTCCAPI int tcc_get_symbol_size(TCCState *s, const char *name)
 
 LIBTCCAPI int tcc_get_total_code_size(TCCState *s)
 {
-    Section *sec = have_section(s, ".text");
-    if (!sec) return 0;
-    return sec->data_offset;
+    Section *sec;
+    if (!s) return 0;
+    sec = have_section(s, ".text");
+    if (sec)
+        return sec->data_offset;
+    return s->total_output[0];
 }
 
 LIBTCCAPI int tcc_add_symbol(TCCState *s1, const char *name, const void *val)
