@@ -137,6 +137,30 @@ static int rt_mem(TCCState *s1, int size)
     return ptr_diff;
 }
 
+/* return the required memory size for relocation.
+   Returns -1 on error. */
+LIBTCCAPI int tcc_relocate_get_size(TCCState *s1)
+{
+    int size;
+
+    if (s1->run_ptr)
+        return -1;
+    if (s1->run_size > 0)
+        return s1->run_size;
+
+#ifdef CONFIG_TCC_BACKTRACE
+    if (s1->do_backtrace)
+        tcc_add_symbol(s1, "_tcc_backtrace", _tcc_backtrace); /* for bt-log.c */
+#endif
+
+    size = tcc_relocate_ex(s1, NULL, 0);
+    if (size < 0)
+        return -1;
+
+    s1->run_size = size;
+    return size;
+}
+
 /* ------------------------------------------------------------- */
 /* Do all relocations (needed before using tcc_get_symbol())
    Returns -1 on error. */
@@ -147,13 +171,11 @@ LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr)
 
     if (s1->run_ptr)
         exit(tcc_error_noabort("'tcc_relocate()' twice is no longer supported"));
-#ifdef CONFIG_TCC_BACKTRACE
-    if (s1->do_backtrace)
-        tcc_add_symbol(s1, "_tcc_backtrace", _tcc_backtrace); /* for bt-log.c */
-#endif
-    size = tcc_relocate_ex(s1, NULL, 0);
+
+    size = tcc_relocate_get_size(s1);
     if (size < 0)
         return -1;
+
     if (ptr == NULL) {
         ptr_diff = rt_mem(s1, size);
         if (ptr_diff < 0)

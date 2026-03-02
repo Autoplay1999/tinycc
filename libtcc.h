@@ -88,6 +88,10 @@ LIBTCCAPI int tcc_output_file(TCCState *s, const char *filename);
    tcc_relocate() before. */
 LIBTCCAPI int tcc_run(TCCState *s, int argc, char **argv);
 
+/* return the required memory size for relocation.
+   Returns -1 on error. */
+LIBTCCAPI int tcc_relocate_get_size(TCCState *s1);
+
 /* do all relocations (needed before using tcc_get_symbol()) */
 LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr);
 
