@@ -220,7 +220,8 @@ ST_FUNC void tcc_run_free(TCCState *s1)
         munmap(ptr, size);
 #else
     /* unprotect memory to make it usable for malloc again */
-    protect_pages((void*)PAGEALIGN(ptr), size - PAGESIZE, 2 /*rw*/);
+    if (!s1->run_ptr_user)
+        protect_pages((void*)PAGEALIGN(ptr), size - PAGESIZE, 2 /*rw*/);
 # ifdef _WIN64
     win64_del_function_table(s1->run_function_table);
 # endif
