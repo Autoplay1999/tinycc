@@ -531,9 +531,13 @@ LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name)
 
 LIBTCCAPI int tcc_get_symbol_size(TCCState *s, const char *name)
 {
-    int sym_index = find_elf_sym(s->symtab, name);
+    int sym_index;
     ElfW(Sym) *sym;
 
+    if (!s || !s->symtab)
+        return -1;
+
+    sym_index = find_elf_sym(s->symtab, name);
     if (!sym_index)
         return -1;
 
