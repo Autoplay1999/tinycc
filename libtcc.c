@@ -767,13 +767,129 @@ ST_FUNC void tcc_close(void)
     tcc_free(bf);
 }
 
+#undef read
+#undef lseek
+#undef close
+
+/* Virtual File System Hooking */
+struct VMemFile {
+    uint8_t *data;
+    int size;
+    int pos;
+};
+
+#define MAX_VMEM_FILES 128
+
+static int vfs_add(TCCState *s1, void *data, int size)
+{
+    int i;
+    if (!s1->vmem_files) {
+        s1->vmem_files = tcc_mallocz(MAX_VMEM_FILES * sizeof(struct VMemFile *));
+        s1->nb_vmem_files = MAX_VMEM_FILES;
+    }
+    for (i = 0; i < s1->nb_vmem_files; i++) {
+        if (!s1->vmem_files[i]) {
+            struct VMemFile *v = tcc_mallocz(sizeof(*v));
+            v->data = data;
+            v->size = size;
+            v->pos = 0;
+            s1->vmem_files[i] = v;
+            return 0x10000000 + i;
+        }
+    }
+    return -1;
+}
+
+ST_FUNC int _tcc_vfs_read(int fd, void *buf, unsigned int count)
+{
+    if (fd < 0) return -1;
+    if ((fd & 0xF0000000) == 0x10000000) {
+        int i = fd & 0xFFFFFFF;
+        TCCState *s1 = tcc_state;
+        struct VMemFile *v;
+        int avail;
+        
+        if (!s1 || !s1->vmem_files || i < 0 || i >= s1->nb_vmem_files) return -1;
+        v = s1->vmem_files[i];
+        if (!v) return -1;
+        
+        avail = v->size - v->pos;
+        if ((int)count > avail) count = avail;
+        if (count > 0) {
+            memcpy(buf, v->data + v->pos, count);
+            v->pos += count;
+        }
+        return count;
+    }
+    return read(fd, buf, count);
+}
+
+ST_FUNC long _tcc_vfs_lseek(int fd, long offset, int whence)
+{
+    if (fd < 0) return -1;
+    if ((fd & 0xF0000000) == 0x10000000) {
+        int i = fd & 0xFFFFFFF;
+        TCCState *s1 = tcc_state;
+        struct VMemFile *v;
+        
+        if (!s1 || !s1->vmem_files || i < 0 || i >= s1->nb_vmem_files) return -1;
+        v = s1->vmem_files[i];
+        if (!v) return -1;
+        
+        if (whence == SEEK_SET) v->pos = offset;
+        else if (whence == SEEK_CUR) v->pos += offset;
+        else if (whence == SEEK_END) v->pos = v->size + offset;
+        if (v->pos < 0) v->pos = 0;
+        if (v->pos > v->size) v->pos = v->size;
+        return v->pos;
+    }
+    return lseek(fd, offset, whence);
+}
+
+ST_FUNC int _tcc_vfs_close(int fd)
+{
+    if (fd < 0) return -1;
+    if ((fd & 0xF0000000) == 0x10000000) {
+        int i = fd & 0xFFFFFFF;
+        TCCState *s1 = tcc_state;
+        struct VMemFile *v;
+        
+        if (!s1 || !s1->vmem_files || i < 0 || i >= s1->nb_vmem_files) return -1;
+        v = s1->vmem_files[i];
+        if (v) {
+            if (s1->loader_free_func) {
+                s1->loader_free_func(s1->loader_opaque, v->data);
+            }
+            tcc_free(v);
+            s1->vmem_files[i] = NULL;
+        }
+        return 0;
+    }
+    return close(fd);
+}
+
+/* Re-enable VFS macros so all subsequent code uses VFS-aware wrappers. */
+#define read _tcc_vfs_read
+#define lseek _tcc_vfs_lseek
+#define close _tcc_vfs_close
+
 static int _tcc_open(TCCState *s1, const char *filename)
 {
     int fd;
-    if (strcmp(filename, "-") == 0)
-        fd = 0, filename = "<stdin>";
-    else
-        fd = open(filename, O_RDONLY | O_BINARY);
+    do {
+        if (s1 && s1->loader_func) {
+            void *buf;
+            int size;
+            if (s1->loader_func(s1->loader_opaque, filename, &buf, &size) == 0) {
+                fd = vfs_add(s1, buf, size);
+                break;
+            }
+        }
+        if (strcmp(filename, "-") == 0)
+            fd = 0, filename = "<stdin>";
+        else
+            fd = open(filename, O_RDONLY | O_BINARY);
+    } while(0);
     if ((s1->verbose == 2 && fd >= 0) || s1->verbose == 3)
         printf("%s %*s%s\n", fd < 0 ? "nf":"->",
                (int)(s1->include_stack_ptr - s1->include_stack), "", filename);
@@ -1035,6 +1151,13 @@ LIBTCCAPI int tcc_add_library_path(TCCState *s, const char *pathname)
 LIBTCCAPI void tcc_set_lib_path(TCCState *s, const char *path)
 {
     tcc_set_str(&s->tcc_lib_path, path);
+}
+
+LIBTCCAPI void tcc_set_lib_loader(TCCState *s, TCCLibLoaderFunc *loader_func, TCCLibFreeFunc *free_func, void *loader_opaque)
+{
+    s->loader_func = loader_func;
+    s->loader_free_func = free_func;
+    s->loader_opaque = loader_opaque;
 }
 
 /* add/update a 'DLLReference', Just find if level == -1  */

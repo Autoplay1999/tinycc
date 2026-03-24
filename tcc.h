@@ -854,6 +854,16 @@ struct TCCState {
     /* error handling */
     void *error_opaque;
     void (*error_func)(void *opaque, const char *msg);
+    
+    /* custom lib loader */
+    void *loader_opaque;
+    int (*loader_func)(void *opaque, const char *filename, void **out_buf, int *out_size);
+    void (*loader_free_func)(void *opaque, void *buf);
+    
+    /* VFS files */
+    struct VMemFile **vmem_files;
+    int nb_vmem_files;
+    
     int error_set_jmp_enabled;
     jmp_buf error_jmp_buf;
     int nb_errors;
@@ -2000,6 +2010,15 @@ PUB_FUNC void tcc_exit_state(TCCState *s1);
     - offsetof(TCCState, warn_none), _tcc_warning))
 
 /********************************************************/
+/* Virtual File System Hook */
+ST_FUNC int _tcc_vfs_read(int fd, void *buf, unsigned int count);
+ST_FUNC long _tcc_vfs_lseek(int fd, long offset, int whence);
+ST_FUNC int _tcc_vfs_close(int fd);
+
+#define read _tcc_vfs_read
+#define lseek _tcc_vfs_lseek
+#define close _tcc_vfs_close
+
 #endif /* _TCC_H */
 
 #undef TCC_STATE_VAR

@@ -26,6 +26,11 @@ LIBTCCAPI void tcc_delete(TCCState *s);
 /* set CONFIG_TCCDIR at runtime */
 LIBTCCAPI void tcc_set_lib_path(TCCState *s, const char *path);
 
+/* set custom loader for files (optional) */
+typedef int TCCLibLoaderFunc(void *opaque, const char *filename, void **out_buf, int *out_size);
+typedef void TCCLibFreeFunc(void *opaque, void *buf);
+LIBTCCAPI void tcc_set_lib_loader(TCCState *s, TCCLibLoaderFunc *loader_func, TCCLibFreeFunc *free_func, void *loader_opaque);
+
 /* set error/warning callback (optional) */
 typedef void TCCErrorFunc(void *opaque, const char *msg);
 LIBTCCAPI void tcc_set_error_func(TCCState *s, void *error_opaque, TCCErrorFunc *error_func);
@@ -103,6 +108,7 @@ LIBTCCAPI int tcc_get_symbol_size(TCCState *s, const char *name);
 
 /* return total code size of the text section */
 LIBTCCAPI int tcc_get_total_code_size(TCCState *s);
+
 
 /* list all (global) symbols and their values via 'symbol_cb()' */
 LIBTCCAPI void tcc_list_symbols(TCCState *s, void *ctx,
